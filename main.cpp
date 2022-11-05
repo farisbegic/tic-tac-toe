@@ -1,15 +1,16 @@
 #include <iostream>
 #include <utility>
 #include <vector>
-
 using namespace std;
+
 #define EMPTY '-'
-#define WINNER 1
-#define LOSER (-1)
+#define WINNER 1000
+#define LOSER -1000
 #define TIE 0
 #define SIZE 3
 #define PLAYER 'X'
 #define COMPUTER 'O'
+#define DEPTH 0
 
 void printBoard(char board[SIZE][SIZE]);
 
@@ -23,11 +24,11 @@ int getBoardState(char board[SIZE][SIZE], char marker);
 
 vector<pair<int, int>> getOccupiedPositions(char board[3][3], char marker);
 
-bool isGameWon(vector<pair<int, int>> occupiedPositions);
+bool isGameWon(const vector<pair<int, int>>& occupiedPositions);
 
 bool isOccupied(char board[3][3], pair<int, int> position);
 
-pair<int, int> getAIMove(char board[3][3]);
+pair<int, pair<int, int>> findBestMove(char board[3][3], char marker, int depth, int alpha, int beta);
 
 string displayState(int state);
 
@@ -36,26 +37,27 @@ int main() {
                                EMPTY, EMPTY, EMPTY,
                                EMPTY, EMPTY, EMPTY };
 
+    cout << "Welcome to Tic-Tac-Toe Game" << endl;
+    cout << "The player is X" << endl;
+    cout << "The computer is O" << endl;
+
     printBoard(board);
 
     while (!isGameFinished(board)) {
         int row, column;
-        cout << "Enter column (0,2):" << endl;
-        cin >> column;
-        cout << "Enter row (0,2):" << endl;
-        cin >> row;
 
-        pair<int, int> pair = make_pair(row, column);
+        do {
+            cout << "Enter column (0,2):" << endl;
+            cin >> column;
+            cout << "Enter row (0,2):" << endl;
+            cin >> row;
+        } while (isOccupied(board, make_pair(row, column)));
 
-        if (isOccupied(board, pair)) {
-            cout << "That position is already occupied" << endl;
-        } else {
-            board[row][column] = PLAYER;
-        }
+        board[row][column] = PLAYER;
 
         // Perform AI Move
-        pair = getAIMove(board);
-        board[pair.first][pair.second] = COMPUTER;
+        pair<int, pair<int, int>> pair = findBestMove(board, COMPUTER, DEPTH, LOSER, WINNER);
+        board[pair.second.first][pair.second.second] = COMPUTER;
         printBoard(board);
     }
 
@@ -80,8 +82,52 @@ string displayState(int state) {
     }
 }
 
-pair<int, int> getAIMove(char board[3][3]) {
-    // implement minmax algorithm here
+pair<int, pair<int, int>> findBestMove(char board[3][3], char marker, int depth, int alpha, int beta) {
+    pair<int, int> bestMove = make_pair(-1, -1);
+    int bestScore = marker == COMPUTER ? LOSER : WINNER;
+
+    if (isGameFinished(board)) {
+        bestScore = getBoardState(board, COMPUTER);
+        return make_pair(bestScore, bestMove);
+    }
+
+    vector<pair<int, int>> emptyPositions = getEmptyPositions(board);
+
+    for (auto position : emptyPositions) {
+        board[position.first][position.second] = marker;
+
+        if (marker == COMPUTER) {
+            int score = findBestMove(board, PLAYER, depth + 1, alpha, beta).first;
+
+            if (bestScore < score) {
+                bestScore = score - depth * 10;
+                bestMove = position;
+
+                alpha = max(alpha, bestScore);
+                board[position.first][position.second] = EMPTY;
+
+                if (beta <= alpha) {
+                    break;
+                }
+            }
+        } else {
+            int score = findBestMove(board, COMPUTER, depth + 1, alpha, beta).first;
+
+            if (bestScore > score) {
+                bestScore = score + depth * 10;
+                bestMove = position;
+
+                beta = min(beta, bestScore);
+                board[position.first][position.second] = EMPTY;
+
+                if (beta <= alpha) {
+                    break;
+                }
+            }
+        }
+        board[position.first][position.second] = EMPTY;
+    }
+    return make_pair(bestScore, bestMove);
 }
 
 bool isOccupied(char board[3][3], pair<int, int> position) {
@@ -115,7 +161,7 @@ int getBoardState(char board[SIZE][SIZE], char marker) {
     return TIE;
 }
 
-bool isGameWon(vector<pair<int, int>> occupiedPositions) {
+bool isGameWon(const vector<pair<int, int>>& occupiedPositions) {
     if (occupiedPositions.size() < 3) {
         return false;
     }
@@ -124,8 +170,8 @@ bool isGameWon(vector<pair<int, int>> occupiedPositions) {
     for (int i = 0; i < SIZE; i++) {
         int count = 0;
         for (int j = 0; j < SIZE; j++) {
-            for (int k = 0; k < occupiedPositions.size(); k++) {
-                if (occupiedPositions[k].first == i && occupiedPositions[k].second == j) {
+            for (auto & occupiedPosition : occupiedPositions) {
+                if (occupiedPosition.first == i && occupiedPosition.second == j) {
                     count++;
                 }
             }
@@ -139,8 +185,8 @@ bool isGameWon(vector<pair<int, int>> occupiedPositions) {
     for (int i = 0; i < SIZE; i++) {
         int count = 0;
         for (int j = 0; j < SIZE; j++) {
-            for (int k = 0; k < occupiedPositions.size(); k++) {
-                if (occupiedPositions[k].first == j && occupiedPositions[k].second == i) {
+            for (auto & occupiedPosition : occupiedPositions) {
+                if (occupiedPosition.first == j && occupiedPosition.second == i) {
                     count++;
                 }
             }
@@ -153,8 +199,8 @@ bool isGameWon(vector<pair<int, int>> occupiedPositions) {
     // Check for diagonal win
     int count = 0;
     for (int i = 0; i < SIZE; i++) {
-        for (int j = 0; j < occupiedPositions.size(); j++) {
-            if (occupiedPositions[j].first == i && occupiedPositions[j].second == i) {
+        for (auto & occupiedPosition : occupiedPositions) {
+            if (occupiedPosition.first == i && occupiedPosition.second == i) {
                 count++;
             }
         }
@@ -165,8 +211,8 @@ bool isGameWon(vector<pair<int, int>> occupiedPositions) {
 
     count = 0;
     for (int i = 0; i < SIZE; i++) {
-        for (int j = 0; j < occupiedPositions.size(); j++) {
-            if (occupiedPositions[j].first == i && occupiedPositions[j].second == SIZE - i - 1) {
+        for (auto & occupiedPosition : occupiedPositions) {
+            if (occupiedPosition.first == i && occupiedPosition.second == SIZE - i - 1) {
                 count++;
             }
         }

@@ -44,13 +44,17 @@ int main() {
     printBoard(board);
 
     while (!isGameFinished(board)) {
-        int row, column;
+        int row, column, missCount = 0;
 
         do {
+            if (missCount > 0) {
+                cout << "Invalid position. Please try again." << endl;
+            }
             cout << "Enter column (0,2):" << endl;
             cin >> column;
             cout << "Enter row (0,2):" << endl;
             cin >> row;
+            missCount++;
         } while (isOccupied(board, make_pair(row, column)));
 
         board[row][column] = PLAYER;
